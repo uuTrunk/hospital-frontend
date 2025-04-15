@@ -3,20 +3,27 @@
     <!-- 左侧患者选择区域 -->
     <div class="left-panel">
       <div class="patient-search">
-        <el-input placeholder="姓名/入院编号" v-model="patientSearchKeyword" clearable @input="filterPatientList">
-          <el-button slot="append" icon="el-icon-search"></el-button>
+        <el-input placeholder="姓名/入院编号" v-model="patientSearchKeyword" clearable>
+          <el-button slot="append" icon="el-icon-search" @click="filterPatientList"></el-button>
         </el-input>
       </div>
-      <ul class="patient-list">
+      <ul class="patient-list" >
         <li
           v-for="patient in filteredPatientList"
-          :key="patient.id"
+          :key="patient.orderId"
           class="patient-item"
-          :class="{ active: selectedPatient && selectedPatient.id === patient.id }"
+          :class="{ active: selectedPatient && selectedPatient.orderId === patient.orderId }"
           @click="selectPatient(patient)"
         >
-          <div class="patient-name">{{ patient.name }}</div>
-          <div class="patient-details">{{ patient.roomNumber }} | {{ patient.admissionId }}</div>
+          <div class="patient-name">患者姓名:{{ patient.patientName }}</div>
+          <div class="doctor-name">医生姓名:{{ patient.doctorName }}</div>
+          <div class="order-type">医嘱类型:{{ patient.orderType }}</div>
+          <div class="content">医嘱内容:{{ patient.content }}}</div>
+          <div class="dosage">剂量:{{patient.dosage}}}</div>
+          <div class="medicalUsage">用法:{{patient.medicalUsage}}</div>
+          <div class="frequency">频率:{{patient.frequency}}}</div>
+          <div class="validityPeriod">有效期:{{patient.validityPeriod}}}</div>
+          <div class="stop-time">停止时间:{{patient.stopTime}}}</div>
         </li>
         <li v-if="filteredPatientList.length === 0" class="no-patient">无匹配患者</li>
       </ul>
@@ -283,6 +290,8 @@
 <script>
 // 假设 OrderDialog 组件已存在且功能完善
 import OrderDialog from '@/components/OrderDialog.vue' 
+// 修改说明：添加axios请求获取真实数据并处理分页
+import axios from 'axios';
 
 export default {
   name: 'MedicalManagement', // Keep the name consistent with routing
@@ -298,7 +307,7 @@ export default {
 
       activeTab: 'temp', // 右侧医嘱类型切换: temp or long
       smartManagementEnabled: false, // 智能管理开关
-      
+
       temporaryOrders: [], // 选中患者的临时医嘱
       longTermOrders: [], // 选中患者的长期医嘱
       pagination: {
@@ -332,21 +341,21 @@ export default {
     },
     // 计算当前医嘱列表的总数（用于分页）
     currentTotalOrders() {
-        return this.activeTab === 'temp' ? this.temporaryOrders.length : this.longTermOrders.length;
+      return this.activeTab === 'temp' ? this.temporaryOrders.length : this.longTermOrders.length;
     }
   },
   watch: {
     // 监听 currentTotalOrders 的变化，更新分页总数
     currentTotalOrders(newTotal) {
-        this.pagination.total = newTotal;
+      this.pagination.total = newTotal;
     },
     // 当选中的患者变化时，如果之前没有患者，默认勾选包含信息
     selectedPatient(newPatient, oldPatient) {
-        if (newPatient && !oldPatient) {
-            this.includePatientInfoOnEmpty = true;
-        } else if (!newPatient) {
-            this.includePatientInfoOnEmpty = false; // 没有选中患者时禁用并取消勾选
-        }
+      if (newPatient && !oldPatient) {
+        this.includePatientInfoOnEmpty = true;
+      } else if (!newPatient) {
+        this.includePatientInfoOnEmpty = false; // 没有选中患者时禁用并取消勾选
+      }
     },
   },
   created() {
@@ -354,26 +363,67 @@ export default {
   },
   methods: {
     // --- 左侧患者列表相关方法 ---
-    fetchAllPatients() {
-      console.log('Fetching all patients...');
-      // 模拟API获取所有患者基础信息
-      this.allPatientList = [
-        { id: '1', name: '李大爷', roomNumber: '2201-01', admissionId: '122455478', gender: '男', age: 86, admissionDate: '2021-02', nursingLevel: '二级护理' },
-        { id: '2', name: '王阿姨', roomNumber: '2201-02', admissionId: '122455479', gender: '女', age: 75, admissionDate: '2021-03', nursingLevel: '一级护理' },
-        { id: '3', name: '张三', roomNumber: '2202-01', admissionId: '122455480', gender: '男', age: 68, admissionDate: '2021-04', nursingLevel: '三级护理' },
-        { id: '4', name: '刘能', roomNumber: '2202-02', admissionId: '122455481', gender: '男', age: 72, admissionDate: '2021-05', nursingLevel: '特级护理' }
-      ];
-      this.filterPatientList(); // 初始化显示过滤后的列表
+    async fetchAllPatients() {
+      try {
+        const res = await axios.get('/api/medical-order/list', { params: { page: 100, pageSize: 100 } });
+        // console.log('res',res)
+        // 确保返回的list存在，否则设为空数组
+        this.allPatientList = res.data.data.list;
+        console.log('allPatientList:', this.allPatientList)
+        // for(let i = 0; i < this.allPatientList.length; i++) {
+        //   console.log('Patient:', this.allPatientList[i])
+        // }
+      } catch (e) {
+        this.$message.error('患者列表加载失败');
+        // 异常时也确保allPatientList是空数组
+        this.allPatientList = [];
+      }
+      this.fetchAllPatients = this.allPatientList
     },
     filterPatientList() {
       const keyword = this.patientSearchKeyword.trim().toLowerCase();
-      if (!keyword) {
-        this.filteredPatientList = [...this.allPatientList];
-      } else {
-        this.filteredPatientList = this.allPatientList.filter(p => 
-          p.name.toLowerCase().includes(keyword) || p.admissionId.includes(keyword)
-        );
+      // console.log('Search keyword:', keyword);
+      // console.log('All patients:', this.allPatientList)
+      // 若allPatientList未初始化，直接返回空列表
+      if (!Array.isArray(this.allPatientList)) {
+        this.filteredPatientList = [];
+        return;
       }
+      if (!keyword) {
+        this.filteredPatientList = this.allPatientList;
+      } else {
+        const res = axios.get('/api/medical-order/list', { params: { patientName: keyword, page: 100, pageSize: 100 } });
+        console.log('res',res)
+        this.filteredPatientList = res.data.data.list
+      }
+      console.log('Filtered patients:', this.filteredPatientList)
+      for(let i = 0; i < this.filteredPatientList.length; i++)
+        console.log('Patient:', this.filteredPatientList[i])
+    },
+    doPrint() {
+      console.log('执行打印操作:', this.printOrders);
+      // 实现打印逻辑（如调用打印API或生成PDF）
+    },
+
+    // 打印空白医嘱单
+    doPrintEmptyOrder() {
+      console.log('打印空白医嘱单');
+      // 实现空白单打印逻辑
+    },
+    // 处理医嘱表单提交
+    handleOrderSubmit(orderData) {
+      console.log('提交的医嘱数据:', orderData);
+      if (this.isEdit) {
+        this.updateOrder(orderData); // 调用更新方法
+      } else {
+        // 新增医嘱逻辑（可能需要调用createNewOrder）
+      }
+      this.showOrderDialog = false; // 关闭对话框
+    },
+    printCurrentOrderList() {
+      this.printOrders = this.currentOrders; // 填充打印数据
+      this.printOrderType = this.activeTab;
+      this.showPrintDialog = true;
     },
     selectPatient(patient) {
       if (this.selectedPatient && this.selectedPatient.id === patient.id) return; // Avoid re-fetching if already selected
@@ -385,26 +435,25 @@ export default {
     },
 
     // --- 右侧医嘱管理相关方法 ---
-    fetchOrdersForSelectedPatient() {
+    async fetchOrdersForSelectedPatient() {
       if (!this.selectedPatient) return;
-      console.log(`Fetching orders for patient ID: ${this.selectedPatient.id}`);
-      // 模拟API获取选中患者的医嘱
-      // --- Temp Orders Example ---
-      const temp = [
-        { time: '05-12 09:10', group: '1', content: '阿莫西林胶囊\n0.25g*20粒/盒', dosage: '0.5g', usage: '口服(po), 餐前(ac), 禁止饮酒', days: '2', total: '2盒' },
-        { time: '05-12 09:15', group: '', content: '行总管置换术一次', dosage: '', usage: '', days: '', total: '' },
-        { time: '05-13 10:00', group: '2', content: '0.9%葡萄糖注射液\n500ml*1瓶/盒', dosage: '500ml', usage: '静脉滴注(ivdrip), 每天2次(bid)', days: '3', total: '6瓶' },
-      ];
-      // --- Long Term Orders Example ---
-      const long = [
-         { time: '05-10 08:00', group: '', content: '胰岛素注射液', dosage: '10U', usage: '皮下注射(sc), 餐前30分钟', stopTime: '' },
-         { time: '05-10 08:05', group: '', content: '二甲双胍片', dosage: '0.5g', usage: '口服(po), 每天2次(bid)', stopTime: '07-14 09:10' },
-      ];
-      // 实际应用中根据 this.selectedPatient.id 调用API
-      this.temporaryOrders = temp; 
-      this.longTermOrders = long;
-      // 更新分页总数 (需要在获取数据后更新)
-      this.pagination.total = this.currentTotalOrders; 
+      const params = {
+        patientId: this.selectedPatient.id,
+        page: this.pagination.currentPage,
+        pageSize: this.pagination.pageSize,
+        orderType: this.activeTab === 'temp' ? '临时' : '长期' // 根据标签类型传递参数
+      };
+      try {
+        const res = await axios.get('/api/medical-order/list', { params });
+        if (this.activeTab === 'temp') {
+          this.temporaryOrders = res.data.data.list;
+        } else {
+          this.longTermOrders = res.data.data.list;
+        }
+        this.pagination.total = res.data.data.total;
+      } catch (e) {
+        this.$message.error('医嘱列表加载失败');
+      }
     },
     switchTab(tab) {
       if (this.activeTab === tab) return;
@@ -412,219 +461,75 @@ export default {
       this.pagination.currentPage = 1; // 切换tab时重置分页
       this.pagination.total = this.currentTotalOrders; // 更新分页总数
     },
-    createNewOrder() {
+    async createNewOrder() {
       if (!this.selectedPatient) {
         this.$message.warning('请先在左侧选择患者');
         return;
       }
       console.log(`Navigating to create new ${this.activeTab} order for patient: ${this.selectedPatient.id}`);
       // Navigate to the detail page, passing patientId and order type
-      this.$router.push({ 
-        name: 'MedicalOrderDetail', 
-        params: { patientId: this.selectedPatient.id },
-        query: { type: this.activeTab } // Pass type as query parameter
+      this.$router.push({
+        name: 'MedicalOrderDetail',
+        params: {patientId: this.selectedPatient.id},
+        query: {type: this.activeTab} // Pass type as query parameter
       });
     },
-    editOrder(order) {
-       if (!this.selectedPatient) {
-        this.$message.warning('请先在左侧选择患者');
-        return;
+    async updateOrder(order) {
+      try {
+        await axios.put('/api/medical-order/update', {
+          orderId: order.orderId,
+          content: order.content,
+          dosage: order.dosage,
+          usage: order.usage,
+          frequency: order.frequency
+        });
+        this.$message.success('医嘱修改成功');
+        this.fetchOrdersForSelectedPatient();
+      } catch (e) {
+        this.$message.error('修改失败');
       }
-       if (!order || !order.id) { // Assuming orders have a unique ID
-           this.$message.error('无法编辑无效的医嘱记录');
-           return;
-       }
-      console.log(`Navigating to edit ${this.activeTab} order ${order.id} for patient: ${this.selectedPatient.id}`);
-       // Navigate to the detail page for editing
-       this.$router.push({ 
-        name: 'MedicalOrderDetail', 
-        params: { patientId: this.selectedPatient.id },
-        // Pass type and the ID of the order being edited
-        query: { type: this.activeTab, editOrderId: order.id } 
-      });
-
-      // Remove old logic that opened a dialog
-      // this.isEdit = true;
-      // this.editingOrder = { ...order, type: this.activeTab }; 
-      // this.showOrderDialog = true;
     },
-    handleOrderSubmit(data) {
-      console.log('Order submitted:', data);
-      if (!this.selectedPatient) return;
-      
-      // TODO: 调用API保存医嘱 (data 中应包含患者ID)
-      // 模拟保存成功后的逻辑
-      const targetList = data.type === 'temp' ? this.temporaryOrders : this.longTermOrders;
-      if (this.isEdit) {
-        const index = targetList.findIndex(o => o.time === this.editingOrder.time); // 假设time是唯一标识
-        if (index > -1) {
-          this.$set(targetList, index, data);
-          this.$message.success('医嘱更新成功');
-        } else {
-           this.$message.error('未找到要更新的医嘱');
-        }
-      } else {
-        targetList.unshift(data); // 添加到列表开头
-        this.$message.success('新医嘱添加成功');
-      }
-      this.pagination.total = this.currentTotalOrders; // 更新总数
-      this.showOrderDialog = false;
-      this.editingOrder = null;
-    },
-    stopOrder(order) {
-      this.editingOrder = { ...order };
+    async stopOrder(order) {
+      // console.log('停止医嘱:', order)
+      this.editingOrder = {...order};
       this.stopTime = this.activeTab === 'long' ? (order.stopTime || '') : ''; // 初始化停止时间
       this.showStopDialog = true;
     },
-    confirmStopOrder() {
-      if (!this.editingOrder) return;
-      console.log('Confirming stop order:', this.editingOrder, 'Stop time:', this.stopTime);
-      // TODO: 调用API停止医嘱
-      // 模拟成功后的逻辑
-      const targetList = this.activeTab === 'temp' ? this.temporaryOrders : this.longTermOrders;
-      const index = targetList.findIndex(o => o.time === this.editingOrder.time); // 假设time是唯一标识
-      
-      if (index > -1) {
-        if (this.activeTab === 'long') {
-          if (!this.stopTime) {
-            this.$message.warning('请选择长期医嘱的停止时间');
-            return;
-          }
-          this.$set(targetList[index], 'stopTime', this.stopTime);
-          this.$message.success('长期医嘱已标记停止时间');
-        } else {
-          targetList.splice(index, 1);
-          this.$message.success('临时医嘱已删除');
-        }
-        this.pagination.total = this.currentTotalOrders; // 更新总数
-      } else {
-         this.$message.error('未找到要停止的医嘱');
+    async confirmStopOrder() {
+      try {
+        console.log('停止医嘱:', this.editingOrder)
+        // let data = {orderId: this.editingOrder.orderId, doctorName: this.editingOrder.doctorName};
+        // if (this.activeTab === 'long') {
+        //   data.stopTime = this.stopTime;
+        // }
+        // console.log('停止医嘱数据:', data)
+        await axios.delete('/api/medical-order/delete', {params: {orderId: this.editingOrder.orderId, doctorName: this.editingOrder.doctorName}});
+        this.$message.success('医嘱作废成功');
+        this.showStopDialog = false;
+        this.fetchOrdersForSelectedPatient();
+      } catch (e) {
+        this.$message.error('作废失败');
       }
-      this.showStopDialog = false;
-      this.editingOrder = null;
     },
-    printOrder(order) {
-      this.printOrders = [order];
-      this.printOrderType = this.activeTab; // 记录打印类型
-      this.showPrintDialog = true;
-    },
-    printEmptyOrder() {
-      console.log('Opening empty order print dialog');
-      // 如果没有选中患者，默认不勾选包含信息
-      if (!this.selectedPatient) {
-          this.includePatientInfoOnEmpty = false;
+    async fetchOrderDetail(orderId) {
+      try {
+        const res = await axios.get('/api/medical-order/detail', {params: {orderId}});
+        return res.data;
+      } catch (e) {
+        this.$message.error('获取医嘱详情失败');
       }
-      this.showEmptyPrintDialog = true; 
     },
-    printCurrentOrderList() {
-      if (!this.selectedPatient) {
-        this.$message.warning('请先选择患者');
-        return;
+    async printOrder(order) {
+      try {
+        await axios.get('/api/medical-order/print', {params: {orderIds: order.orderId}});
+        this.$message.success('打印任务已生成');
+      } catch (e) {
+        this.$message.error('打印失败');
       }
-      const ordersToPrint = this.activeTab === 'temp' ? this.temporaryOrders : this.longTermOrders;
-      
-      if (!ordersToPrint || ordersToPrint.length === 0) {
-        this.$message.warning('当前列表没有可打印的医嘱');
-        return;
-      }
-
-      this.printOrders = [...ordersToPrint]; 
-      this.printOrderType = this.activeTab;
-      this.startPrintRow = 1; // Reset start row when opening dialog
-      this.showPrintDialog = true;
-      console.log(`Printing all ${this.activeTab} orders for patient ${this.selectedPatient.id}`);
-    },
-    doPrintEmptyOrder() {
-        console.log('Printing empty order sheet...');
-        const printWindow = window.open('', '_blank');
-        const printContentEl = this.$refs.emptyPrintPreviewArea;
-        if (!printContentEl) {
-            console.error('Empty print preview element not found!');
-            this.$message.error('打印预览元素未找到');
-            return;
-        }
-        const printContent = printContentEl.innerHTML;
-        
-        // 使用与常规打印类似的样式，但可以按需调整
-        const emptyPrintStyles = `
-            body { font-family: SimSun, serif; margin: 20px; }
-            .empty-print-header { text-align: center; position: relative; margin-bottom: 15px; }
-            .institution-name { font-size: 18px; font-weight: bold; }
-            h1 { font-size: 22px; margin: 5px 0; }
-            .page-number { position: absolute; top: 5px; right: 10px; font-size: 14px; }
-            .patient-info-print { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc; font-size: 14px; }
-            .patient-info-print span { margin-right: 15px; }
-            .patient-info-print.placeholder span { color: #999; }
-            .empty-print-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-            .empty-print-table th, .empty-print-table td { border: 1px solid #333; height: 35px; /* 控制行高 */ text-align: center; padding: 2px 4px; vertical-align: top; }
-            .empty-print-table th { font-weight: bold; background-color: #f2f2f2; }
-            /* 可以在此添加更多打印特定样式 */
-            @media print {
-                /* 隐藏对话框页脚等非打印元素 */
-                .dialog-footer { display: none; }
-            }
-        `;
-
-        const html = this.createPrintHtml('空白医嘱单', emptyPrintStyles, printContent);
-        printWindow.document.write(html);
-        printWindow.document.close();
-        // this.showEmptyPrintDialog = false; // 打印后通常不需要立即关闭预览
-    },
-    // 创建一个通用的 HTML 生成函数
-    createPrintHtml(title, styles, content) {
-      const printDoc = document.implementation.createHTMLDocument(title);
-      
-      const styleEl = printDoc.createElement('style');
-      styleEl.textContent = styles;
-      printDoc.head.appendChild(styleEl);
-      
-      const container = printDoc.createElement('div');
-      container.innerHTML = content;
-      printDoc.body.appendChild(container);
-      
-      const scriptEl = printDoc.createElement('script');
-      scriptEl.textContent = `window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 300); };`; // 增加关闭延迟
-      printDoc.body.appendChild(scriptEl);
-      
-      return printDoc.documentElement.outerHTML;
-    },
-    doPrint() {
-      console.log(`Attempting to print starting from row: ${this.startPrintRow}`);
-      // Note: Actually starting print from a specific physical row on paper via browser's print 
-      // is not directly possible. This UI element is informational or for manual handling.
-      const printWindow = window.open('', '_blank');
-      // Use a specific ref for the regular print preview area
-      const printContentEl = this.$refs.regularPrintPreviewArea; 
-      if (!printContentEl) {
-        console.error('Print preview element (.print-preview) not found!');
-        this.$message.error('打印预览元素未找到');
-        return;
-      }
-      const printContent = printContentEl.innerHTML;
-      const regularPrintStyles = `
-        body { font-family: SimSun, serif; margin: 20px; }
-        .institution-name { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 5px; }
-        .page-number { position: absolute; top: 5px; right: 10px; font-size: 14px; }
-        .patient-info-print { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #ccc; font-size: 14px; }
-        .patient-info-print span { margin-right: 15px; }
-        .print-filled-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-        .print-filled-table th, .print-filled-table td { border: 1px solid #666; padding: 6px 8px; text-align: center; vertical-align: top; word-break: break-all; }
-        .print-filled-table th { background-color: #f2f2f2; font-weight: bold; }
-        .print-filled-table td:nth-child(2) { text-align: left; } /* Align order content left */
-        .print-filled-table .empty-row td { height: 25px; border: 1px dotted #ccc; } /* Style empty rows */
-        @media print { 
-            .dialog-footer { display: none; } 
-            @page { size: A4; margin: 15mm; } /* Example print settings */
-        }
-      `;
-      const title = this.printOrderType === 'temp' ? '临时医嘱单' : '长期医嘱单';
-      const html = this.createPrintHtml(title, regularPrintStyles, printContent);
-      printWindow.document.write(html);
-      printWindow.document.close();
-      this.showPrintDialog = false;
-    },
+    }
   }
-};
+}
+    
 </script>
 
 <style scoped>
@@ -993,7 +898,6 @@ export default {
 }
 
 .footer-print-options span {
-    font-size: 14px;
+  font-size: 14px;
 }
-
-</style> 
+</style>

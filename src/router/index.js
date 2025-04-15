@@ -18,19 +18,19 @@ const routes = [
     component: HomeView,
     children: [
       {
-        path: 'admission-assessment',
+        path: '/admission-assessment',
         name: 'PatientAssessment',
         component: PatientAssessment,
         meta: { title: '入院评估' }
       },
       {
-        path: 'health-assessment',
+        path: '/health-assessment',
         name: 'HealthAssessment',
         component: HealthAssessment,
         meta: { title: '健康评估' }
       },
       {
-        path: 'discharge',
+        path: '/discharge',
         name: 'Discharge',
         component: Discharge,
         meta: { title: '离院办理' }
@@ -45,12 +45,15 @@ const routes = [
         path: '/medical-management',
         name: 'MedicalManagement',
         component: MedicalManagement,
-        meta: {
-          title: '医嘱管理',
-          requiresAuth: true
-        }
+        meta: { title: '医嘱管理' }
       },
     ]
+  },
+  {
+    path: '/prescription-detail/:id',
+    name: 'PrescriptionDetail',
+    component: () => import('@/views/PrescriptionDetail.vue'),
+    meta: { title: '处方详情' }
   }
 ]
 
