@@ -6,6 +6,7 @@ import HealthAssessment from '../views/HealthAssessment.vue'
 import Discharge from '../views/Discharge.vue'
 import HealthRecord from '../views/HealthRecord.vue'
 import MedicalManagement from '../views/MedicalManagement.vue'
+import MedicalOrderDetail from "@/views/MedicalOrderDetail.vue";
 Vue.use(VueRouter)
 
 const routes = [
@@ -47,6 +48,12 @@ const routes = [
         component: MedicalManagement,
         meta: { title: '医嘱管理' }
       },
+      {
+        path: '/medical-order-detail',
+        name: 'MedicalOrderDetail',
+        component: MedicalOrderDetail,
+        meta: { title: '医嘱详情' }
+      }
     ]
   },
   {

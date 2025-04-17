@@ -7,7 +7,7 @@
           <el-button slot="append" icon="el-icon-search" @click="filterPatientList"></el-button>
         </el-input>
       </div>
-      <ul class="patient-list" >
+      <ul class="patient-list">
         <li
           v-for="patient in filteredPatientList"
           :key="patient.orderId"
@@ -18,15 +18,33 @@
           <div class="patient-name">患者姓名:{{ patient.patientName }}</div>
           <div class="doctor-name">医生姓名:{{ patient.doctorName }}</div>
           <div class="order-type">医嘱类型:{{ patient.orderType }}</div>
-          <div class="content">医嘱内容:{{ patient.content }}}</div>
-          <div class="dosage">剂量:{{patient.dosage}}}</div>
-          <div class="medicalUsage">用法:{{patient.medicalUsage}}</div>
-          <div class="frequency">频率:{{patient.frequency}}}</div>
-          <div class="validityPeriod">有效期:{{patient.validityPeriod}}}</div>
-          <div class="stop-time">停止时间:{{patient.stopTime}}}</div>
+          <div class="content">医嘱内容:{{ patient.content }}</div>
+          <div class="dosage">剂量:{{ patient.dosage }}</div>
+          <div class="medicalUsage">用法:{{ patient.medicalUsage }}</div>
+          <div class="frequency">频率:{{ patient.frequency }}</div>
+          <div class="validityPeriod">有效期:{{ patient.validityPeriod }}</div>
+          <div class="stop-time">停止时间:{{ patient.stopTime }}</div>
         </li>
         <li v-if="filteredPatientList.length === 0" class="no-patient">无匹配患者</li>
       </ul>
+
+      <!-- 新增：AI交互区域 -->
+      <div class="ai-section" v-if="smartManagementEnabled">
+        <el-card class="ai-card" shadow="hover">
+          <div slot="header">AI医嘱建议</div>
+          <el-input
+            type="textarea"
+            :rows="2"
+            placeholder="请输入问题或医嘱内容"
+            v-model="aiMessage"
+            style="margin-bottom: 10px;"
+          ></el-input>
+          <el-button type="primary" @click="sendToAI" icon="el-icon-s-promotion">发送请求</el-button>
+          <div v-if="aiResponse" class="ai-response" style="margin-top: 15px;">
+            <strong>AI回复:</strong> {{ aiResponse }}
+          </div>
+        </el-card>
+      </div>
     </div>
 
     <!-- 右侧医嘱管理区域 -->
@@ -37,28 +55,28 @@
           <div class="avatar">
             <span>{{selectedPatient.name ? selectedPatient.name.substring(0,1) : ''}}</span>
           </div>
-          <div class="basic-info">
-            <div>{{selectedPatient.name}} {{selectedPatient.gender}} {{selectedPatient.age}}岁</div>
-            <div>{{selectedPatient.roomNumber}}</div>
-          </div>
+<!--          <div class="basic-info">-->
+<!--            <div>{{selectedPatient.name}} {{selectedPatient.gender}} {{selectedPatient.age}}岁</div>-->
+<!--            <div>{{selectedPatient.roomNumber}}</div>-->
+<!--          </div>-->
           <div class="nursing-info">
-            <div>入院日期 {{selectedPatient.admissionDate}}</div>
-            <div>护理等级 <span class="nursing-level">{{selectedPatient.nursingLevel}}</span></div>
+            <div>医嘱状态 <span class="nursing-level">{{selectedPatient.orderStatus}}</span></div>
           </div>
         </div>
 
         <!-- 功能按钮区 -->
         <div class="action-bar">
-          <div class="left-actions">
-            <button class="tab-btn" :class="{active: activeTab === 'temp'}" @click="switchTab('temp')">
-              <i class="el-icon-document"></i> 临时医嘱
-            </button>
-            <button class="tab-btn" :class="{active: activeTab === 'long'}" @click="switchTab('long')">
-              <i class="el-icon-document-copy"></i> 长期医嘱
-            </button>
-          </div>
+<!--          <div class="left-actions">-->
+
+<!--            <button class="tab-btn" :class="{active: activeTab === 'temp'}" @click="switchTab('temp')">-->
+<!--              <i class="el-icon-document"></i> 临时医嘱-->
+<!--            </button>-->
+<!--            <button class="tab-btn" :class="{active: activeTab === 'long'}" @click="switchTab('long')">-->
+<!--              <i class="el-icon-document-copy"></i> 长期医嘱-->
+<!--            </button>-->
+<!--          </div>-->
           <div class="right-actions">
-            <el-button icon="el-icon-printer" @click="printEmptyOrder">打印空白医嘱单</el-button>
+            <el-button icon="el-icon-printer" @click="doPrintEmptyOrder">打印空白医嘱单</el-button>
             <el-button icon="el-icon-printer" @click="printCurrentOrderList">批量打印</el-button>
             <el-button type="primary" icon="el-icon-plus" @click="createNewOrder">新开</el-button>
           </div>
@@ -66,32 +84,27 @@
 
         <!-- 智能管理开关 -->
         <div class="smart-management">
-          <el-checkbox v-model="smartManagementEnabled">智能管理</el-checkbox>
+          <el-checkbox v-model="smartManagementEnabled">AI智能建议</el-checkbox>
           <!-- 智能管理提示 -->
           <div class="smart-tips" v-if="smartManagementEnabled">
-            智能管理模式已开启...
+            AI智能建议已开启...
           </div>
         </div>
 
         <!-- 医嘱列表 -->
         <div class="orders-table">
           <el-table :data="currentOrders" style="width: 100%" ref="ordersTable">
-            <el-table-column prop="time" label="时间" width="150"></el-table-column>
-            <el-table-column prop="group" label="组" width="80"></el-table-column>
+            <el-table-column prop="orderId" label="医嘱Id" width="150"></el-table-column>
+<!--            <el-table-column prop="patientId" label="患者Id" ></el-table-column>-->
+<!--            <el-table-column prop="doctorId" label="医生Id" ></el-table-column>-->
             <el-table-column prop="content" label="内容"></el-table-column>
             <el-table-column prop="dosage" label="单次剂量" width="120"></el-table-column>
-            <el-table-column prop="usage" label="用法/频次/嘱托" width="200"></el-table-column>
-            <el-table-column prop="days" label="天数" width="80" v-if="activeTab === 'temp'"></el-table-column>
-            <el-table-column prop="total" label="总量" width="80" v-if="activeTab === 'temp'"></el-table-column>
-            <el-table-column prop="stopTime" label="停止时间" width="150" v-if="activeTab === 'long'"></el-table-column>
+            <el-table-column prop="medicalUsage" label="用法" width="150"></el-table-column>
+            <el-table-column prop="frequency" label="频率" width="80" v-if="activeTab === 'temp'"></el-table-column>
+<!--            <el-table-column prop="total" label="总量" width="80" v-if="activeTab === 'temp'"></el-table-column>-->
+            <el-table-column prop="startingTime" label="开始时间" width="150" v-if="activeTab === 'long'"></el-table-column>
             <el-table-column label="操作" width="200">
               <template slot-scope="scope">
-                <el-button
-                  size="mini"
-                  type="text"
-                  icon="el-icon-edit"
-                  @click="editOrder(scope.row)"
-                >编辑</el-button>
                 <el-button
                   size="mini"
                   type="text"
@@ -124,165 +137,10 @@
           >
           </el-pagination>
         </div>
-
       </div>
       <div v-else class="no-patient-selected">
         请先在左侧选择患者
       </div>
-
-      <!-- 对话框 -->
-      <order-dialog
-        :visible.sync="showOrderDialog"
-        :is-edit="isEdit"
-        :order-data="editingOrder"
-        :order-type="activeTab"  
-        @submit="handleOrderSubmit"
-      />
-
-      <el-dialog title="停止医嘱" :visible.sync="showStopDialog" width="400px" v-if="editingOrder">
-        <div class="stop-order-content">
-          <p>确定要停止以下医嘱吗？</p>
-          <p><strong>医嘱内容:</strong> {{ editingOrder.content || '' }}</p>
-          <div class="stop-time" v-if="activeTab === 'long'">
-            <span style="margin-right: 10px;">停止时间:</span>
-            <el-date-picker
-              v-model="stopTime"
-              type="datetime"
-              placeholder="选择停止时间"
-              size="small"
-              format="yyyy-MM-dd HH:mm"
-              value-format="yyyy-MM-dd HH:mm">
-            </el-date-picker>
-          </div>
-          <div v-else>
-            <p style="color: #E6A23C; margin-top: 10px;">临时医嘱将被直接删除。</p>
-          </div>
-        </div>
-        <div slot="footer">
-          <el-button @click="showStopDialog = false" size="small">取 消</el-button>
-          <el-button type="primary" @click="confirmStopOrder" size="small">确 定</el-button>
-        </div>
-      </el-dialog>
-
-      <el-dialog
-        :title="printOrderType === 'temp' ? '临时医嘱单' : '长期医嘱单'" 
-        :visible.sync="showPrintDialog"
-        width="85%" 
-        top="5vh"
-        class="print-dialog">
-         <div class="print-preview" ref="regularPrintPreviewArea">
-            <div class="preview-header">
-                <div class="institution-name">上海 XX 机构</div>
-                <div class="page-number">第 ___ 页</div>
-            </div>
-            <div class="patient-info-print" v-if="selectedPatient">
-                <span>姓名: {{ selectedPatient.name }}</span>
-                <span>区域: {{ selectedPatient.area || '生活区' }}</span> 
-                <span>房间床位: {{ selectedPatient.roomNumber }}</span>
-                <span>入院号: {{ selectedPatient.admissionId }}</span>
-            </div>
-            <table class="preview-table print-filled-table">
-            <thead>
-                <tr>
-                    <th style="width: 15%;">日期时间</th>
-                    <th style="width: 40%;">{{ printOrderType === 'temp' ? '临时医嘱' : '长期医嘱' }}</th>
-                    <th style="width: 10%;">医生签名</th>
-                    <th style="width: 15%;">执行时间</th>
-                    <th style="width: 10%;">护士签名</th>
-                    <th style="width: 10%;">备注</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr v-for="(order, index) in printOrders" :key="index">
-                    <td>{{ order.time || '' }}</td>
-                    <td style="text-align: left; white-space: pre-wrap;">{{ order.content || '' }} {{ order.dosage || '' }} {{ order.usage || '' }}</td> 
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                </tr>
-                 <tr v-for="i in Math.max(0, 10 - printOrders.length)" :key="'empty-'+i" class="empty-row">
-                     <td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td>
-                 </tr>
-            </tbody>
-            </table>
-        </div>
-        <div slot="footer" class="dialog-footer print-filled-footer">
-           <el-button @click="showPrintDialog = false" size="small">关 闭</el-button>
-            <div class="footer-print-options">
-                <span>从纸张第</span>
-                <el-input-number v-model="startPrintRow" controls-position="right" :min="1" size="mini" style="width: 70px; margin: 0 5px;"></el-input-number>
-                <span>行开始打印</span>
-                <el-button type="primary" @click="doPrint" size="small" style="margin-left: 15px;">打 印</el-button>
-            </div>
-        </div>
-      </el-dialog>
-
-      <!-- 新增：打印空白医嘱单对话框 -->
-      <el-dialog
-        title="打印空白医嘱单预览"
-        :visible.sync="showEmptyPrintDialog"
-        width="85%"
-        top="5vh" 
-        class="empty-print-dialog"
-      >
-        <div class="empty-print-preview" ref="emptyPrintPreviewArea">
-          <div class="empty-print-header">
-            <div class="institution-name">上海 XX 机构</div>
-            <h1>长期医嘱单</h1> 
-            <div class="page-number">第 ___ 页</div>
-          </div>
-          <div class="patient-info-print" v-if="includePatientInfoOnEmpty && selectedPatient">
-            <span>姓名: {{ selectedPatient.name }}</span>
-            <span>区域: {{ selectedPatient.area || '生活区' }}</span> 
-            <span>房间床位: {{ selectedPatient.roomNumber }}</span>
-            <span>入院号: {{ selectedPatient.admissionId }}</span>
-          </div><div class="patient-info-print placeholder" v-else>
-             <!-- 占位符或者提示 -->
-             <span>姓名: _________</span>
-             <span>区域: _________</span> 
-             <span>房间床位: _________</span>
-             <span>入院号: _________</span>
-          </div>
-          <table class="empty-print-table">
-            <thead>
-              <tr>
-                <th style="width: 10%;">开始时间</th>
-                <th style="width: 10%;">医生签名</th>
-                <th style="width: 10%;">护士签名</th>
-                <th style="width: 35%;">长期医嘱</th>
-                <th style="width: 10%;">停止时间</th>
-                <th style="width: 10%;">医生签名</th>
-                <th style="width: 10%;">护士签名</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- 生成多行空行 -->
-              <tr v-for="i in 12" :key="i">
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div slot="footer" class="dialog-footer empty-print-footer">
-          <el-button @click="showEmptyPrintDialog = false" size="small">关 闭</el-button>
-          <div class="footer-options">
-            <el-checkbox v-model="includePatientInfoOnEmpty" :disabled="!selectedPatient">
-              包含当前长者信息
-            </el-checkbox>
-            <el-button type="primary" @click="doPrintEmptyOrder" size="small" style="margin-left: 15px;">
-              打 印
-            </el-button>
-          </div>
-        </div>
-      </el-dialog>
-
     </div>
   </div>
 </template>
@@ -296,6 +154,7 @@ import axios from 'axios';
 export default {
   name: 'MedicalManagement', // Keep the name consistent with routing
   components: {
+    // eslint-disable-next-line vue/no-unused-components
     OrderDialog
   },
   data() {
@@ -328,6 +187,9 @@ export default {
       showEmptyPrintDialog: false, // 控制空白打印对话框
       includePatientInfoOnEmpty: true, // 空白打印时是否包含患者信息
       startPrintRow: 1, // For the 'start printing from row' input
+
+      aiMessage: '', // 新增：用户输入的AI请求内容
+      aiResponse: ''  // 新增：AI返回的回复内容
     };
   },
   computed: {
@@ -374,7 +236,7 @@ export default {
         //   console.log('Patient:', this.allPatientList[i])
         // }
       } catch (e) {
-        this.$message.error('患者列表加载失败');
+        this.$message.error(e);
         // 异常时也确保allPatientList是空数组
         this.allPatientList = [];
       }
@@ -408,6 +270,7 @@ export default {
     // 打印空白医嘱单
     doPrintEmptyOrder() {
       console.log('打印空白医嘱单');
+      this.$message.success('打印空白医嘱单');
       // 实现空白单打印逻辑
     },
     // 处理医嘱表单提交
@@ -421,12 +284,13 @@ export default {
       this.showOrderDialog = false; // 关闭对话框
     },
     printCurrentOrderList() {
+      this.$message.success('打印当前医嘱单');
       this.printOrders = this.currentOrders; // 填充打印数据
       this.printOrderType = this.activeTab;
       this.showPrintDialog = true;
     },
     selectPatient(patient) {
-      if (this.selectedPatient && this.selectedPatient.id === patient.id) return; // Avoid re-fetching if already selected
+      // if (this.selectedPatient && this.selectedPatient.id === patient.id) return; // Avoid re-fetching if already selected
       console.log('Selected patient:', patient);
       this.selectedPatient = patient;
       this.activeTab = 'temp'; // 默认显示临时医嘱
@@ -455,6 +319,15 @@ export default {
         this.$message.error('医嘱列表加载失败');
       }
     },
+    // 新增分页事件处理
+    handleSizeChange(size) {
+      this.pagination.pageSize = size;
+      this.fetchOrdersForSelectedPatient();
+    },
+    handleCurrentChange(page) {
+      this.pagination.currentPage = page;
+      this.fetchOrdersForSelectedPatient();
+    },
     switchTab(tab) {
       if (this.activeTab === tab) return;
       this.activeTab = tab;
@@ -466,11 +339,11 @@ export default {
         this.$message.warning('请先在左侧选择患者');
         return;
       }
-      console.log(`Navigating to create new ${this.activeTab} order for patient: ${this.selectedPatient.id}`);
+      console.log(`Navigating to create new ${this.activeTab} order for patient: ${this.selectedPatient.patientId}`);
       // Navigate to the detail page, passing patientId and order type
       this.$router.push({
         name: 'MedicalOrderDetail',
-        params: {patientId: this.selectedPatient.id},
+        params: {patientId: this.selectedPatient.patientId, doctorId: this.selectedPatient.doctorId, orderType: this.selectedPatient.orderType},
         query: {type: this.activeTab} // Pass type as query parameter
       });
     },
@@ -494,6 +367,7 @@ export default {
       this.editingOrder = {...order};
       this.stopTime = this.activeTab === 'long' ? (order.stopTime || '') : ''; // 初始化停止时间
       this.showStopDialog = true;
+      this.confirmStopOrder();
     },
     async confirmStopOrder() {
       try {
@@ -525,6 +399,24 @@ export default {
         this.$message.success('打印任务已生成');
       } catch (e) {
         this.$message.error('打印失败');
+      }
+    },
+    // 新增：调用AI接口的方法
+    async sendToAI() {
+      if (!this.aiMessage.trim()) {
+        this.$message.warning('请输入需要咨询的内容');
+        return;
+      }
+      try {
+        const res = await axios.get('/api/medical-order/chat', {
+          params: {
+            message: this.aiMessage
+          }
+        });
+        this.aiResponse = res.data.data; // 根据接口返回结构调整
+      } catch (error) {
+        this.$message.error('调用AI接口失败，请重试');
+        console.error('AI接口调用失败:', error);
       }
     }
   }
@@ -899,5 +791,22 @@ export default {
 
 .footer-print-options span {
   font-size: 14px;
+}
+
+/* 新增样式：AI交互区域 */
+.ai-section {
+  margin: 20px 0;
+}
+
+.ai-card {
+  border-radius: 4px;
+}
+
+.ai-response {
+  background-color: #f0f9eb;
+  padding: 10px;
+  border-radius: 3px;
+  color: #55a532;
+  font-style: italic;
 }
 </style>
